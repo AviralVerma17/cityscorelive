@@ -167,54 +167,59 @@ button {
 #map {
   position: absolute;
   inset: 0;
+  background: var(--bg);
+  z-index: 0;
 }
 
-.map-svg { width: 100%; height: 100%; display: block; }
-.map-bg { fill: var(--bg); }
-.grid-line { stroke: var(--hairline); stroke-width: 1; }
-
-.sweep {
-  transform-origin: center;
-  animation: sweep-rotate 14s linear infinite;
-  mix-blend-mode: screen;
+/* Leaflet container + tiles, retuned for the dark instrument-panel theme */
+.leaflet-container {
+  background: var(--bg);
+  font-family: var(--font-body);
+  outline: none;
 }
 
-@keyframes sweep-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.leaflet-tile-pane {
+  filter: brightness(0.9) contrast(1.05);
 }
 
-.marker-dot {
-  fill: var(--text-muted);
-  stroke: var(--bg);
-  stroke-width: 1.5;
-  transition: r 0.15s ease;
+.leaflet-control-zoom {
+  border: 1px solid var(--hairline) !important;
+  box-shadow: none !important;
 }
 
-.marker.good .marker-dot { fill: var(--good); }
-.marker.fair .marker-dot { fill: var(--fair); }
-.marker.warn .marker-dot { fill: var(--warn); }
-.marker.poor .marker-dot { fill: var(--poor); }
-
-.marker { cursor: pointer; }
-.marker:hover .marker-dot,
-.marker:focus .marker-dot { r: 7; }
-.marker:focus { outline: none; }
-
-.marker-ring {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  opacity: 0.7;
-  animation: ring-pulse 2s ease-out infinite;
+.leaflet-control-zoom a {
+  background: var(--panel-raised) !important;
+  color: var(--text) !important;
+  border-color: var(--hairline) !important;
 }
 
-@keyframes ring-pulse {
-  0% { r: 10; opacity: 0.9; }
-  100% { r: 22; opacity: 0; }
+.leaflet-control-zoom a:hover {
+  background: var(--accent-dim) !important;
 }
 
-.marker.selected .marker-dot { stroke: var(--accent); stroke-width: 2; }
+.leaflet-control-attribution {
+  background: rgba(18, 23, 29, 0.75) !important;
+  color: var(--text-muted) !important;
+  font-size: 0.68rem !important;
+}
+
+.leaflet-control-attribution a { color: var(--text-muted) !important; }
+
+.city-marker { cursor: pointer; transition: filter 0.15s ease; }
+.city-marker:hover { filter: brightness(1.2); }
+
+.city-tooltip {
+  background: var(--panel-raised) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 4px !important;
+  font-size: 0.78rem !important;
+  font-family: var(--font-mono);
+  box-shadow: none !important;
+  padding: 0.35rem 0.55rem !important;
+}
+
+.city-tooltip::before { display: none !important; }
 
 /* ---------- Score panel (top-left) ---------- */
 
@@ -222,6 +227,7 @@ button {
   position: absolute;
   top: 1.25rem;
   left: 1.25rem;
+  z-index: 10;
   background: rgba(18, 23, 29, 0.88);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
@@ -286,6 +292,7 @@ button {
   position: absolute;
   bottom: 1.25rem;
   right: 1.25rem;
+  z-index: 10;
   width: min(560px, 42vw);
   min-width: 320px;
 }
@@ -476,7 +483,7 @@ dialog::backdrop {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sweep, .marker-ring, .gauge-needle, .gauge-progress, .category-bar-fill {
+  .gauge-needle, .gauge-progress, .category-bar-fill {
     animation: none !important;
     transition: none !important;
   }
