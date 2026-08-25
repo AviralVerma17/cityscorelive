@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityScore &mdash; live city livability dashboard</title>
+  <meta name="description" content="A live, weighted city-rating dashboard blending fixed weather/air-quality data with resident-submitted ratings." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="offline-banner" hidden>Backend unreachable &mdash; showing local seed data. Ratings won&rsquo;t be saved until the API is running.</div>
+
+  <header class="app-header">
+    <div class="brand"><span class="brand-accent">City</span>Score</div>
+
+    <div class="search-wrap">
+      <input id="city-search" type="text" placeholder="Search city or state&hellip;" autocomplete="off" aria-label="Search cities" />
+      <ul id="search-results" hidden></ul>
+    </div>
+
+    <div class="header-actions">
+      <button id="methodology-btn" class="btn">How this is calculated</button>
+      <button id="rate-city-btn" class="btn btn-primary">Rate this city</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div id="map" aria-label="Map of rated cities"></div>
+
+    <section class="score-panel" aria-label="Selected city score">
+      <div class="score-panel-head">
+        <h1 id="city-name">&mdash;</h1>
+        <span id="city-meta"></span>
+        <span id="seed-badge" class="badge" hidden>Seed data</span>
+      </div>
+      <div id="gauge"></div>
+    </section>
+
+    <section class="category-panel" aria-label="Category breakdown">
+      <div id="category-grid"></div>
+    </section>
+  </main>
+
+  <dialog id="rate-modal">
+    <div class="dialog-head">
+      <h2>Rate <span id="rate-city-label"></span></h2>
+      <button class="dialog-close" id="rate-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <form id="rate-form">
+        <div class="rating-field">
+          <label for="input-safety">Safety <output id="out-safety">5</output></label>
+          <input type="range" id="input-safety" name="safety" min="0" max="10" step="0.5" value="5"
+                 oninput="document.getElementById('out-safety').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="input-traffic">Traffic <output id="out-traffic">5</output></label>
+          <input type="range" id="input-traffic" name="traffic" min="0" max="10" step="0.5" value="5"
+                 oninput="document.getElementById('out-traffic').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="input-transport">Public transport <output id="out-transport">5</output></label>
+          <input type="range" id="input-transport" name="transport" min="0" max="10" step="0.5" value="5"
+                 oninput="document.getElementById('out-transport').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="input-cleanliness">Cleanliness <output id="out-cleanliness">5</output></label>
+          <input type="range" id="input-cleanliness" name="cleanliness" min="0" max="10" step="0.5" value="5"
+                 oninput="document.getElementById('out-cleanliness').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="input-comment">Comment (optional)</label>
+          <textarea id="input-comment" name="comment" maxlength="500" placeholder="Anything worth flagging for other visitors?"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit rating</button>
+        <div id="rate-status" class="form-status" role="status"></div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="methodology-panel">
+    <div class="dialog-head">
+      <h2>How this is calculated</h2>
+      <button class="dialog-close" id="methodology-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body" id="methodology-body">Loading&hellip;</div>
+  </dialog>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+openapi: 3.0.3
+info:
+  title: CityScore API
+  description: >
+    Serves per-city livability scores blended from a fixed weather/air-quality
+    source and resident/visitor-submitted ratings.
+  version: 1.0.0
+servers:
+  - url: http://localhost:4000/api
+paths:
+  /health:
+    get:
+      summary: Liveness check
+      responses:
+        '200':
+          description: Service is up
+  /cities:
+    get:
+      summary: List all cities with current scores
+      responses:
+        '200':
+          description: Array of cities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/City'
+  /cities/{slug}:
+    get:
+      summary: Get a single city by slug
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: The city
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  city:
+                    $ref: '#/components/schemas/City'
+        '404':
+          description: No city with that slug
+  /cities/{slug}/environment/refresh:
+    post:
+      summary: Force-refresh the weather/AQI reading for a city
+      description: >
+        Normally run automatically on a timer by the backend job; exposed
+        here mainly for debugging and demos.
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Updated reading
+  /cities/{slug}/submissions:
+    get:
+      summary: List recent submissions for a city
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Paginated submissions
+    post:
+      summary: Submit a rating for a city
+      description: >
+        Blends the four subjective scores into that city's running
+        average. Rate-limited per submitter, per city.
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionInput'
+      responses:
+        '201':
+          description: Submission accepted and blended in
+        '400':
+          description: Validation error
+        '429':
+          description: Rate limited
+  /methodology:
+    get:
+      summary: Category weights and a plain-language explanation of the scoring method
+      responses:
+        '200':
+          description: Weights and explanation
+components:
+  parameters:
+    Slug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+      example: austin-tx
+  schemas:
+    City:
+      type: object
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        state: { type: string, nullable: true }
+        country: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        population: { type: integer, nullable: true }
+        overallScore: { type: integer, minimum: 0, maximum: 100 }
+        isSeedData: { type: boolean }
+        contributorCount: { type: integer }
+        categories:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              score: { type: number }
+              label: { type: string }
+        environment:
+          type: object
+          properties:
+            tempC: { type: number, nullable: true }
+            aqi: { type: number, nullable: true }
+            source: { type: string, enum: [seed, live] }
+            fetchedAt: { type: string, format: date-time, nullable: true }
+    SubmissionInput:
+      type: object
+      required: [safety, traffic, transport, cleanliness]
+      properties:
+        safety: { type: number, minimum: 0, maximum: 10 }
+        traffic: { type: number, minimum: 0, maximum: 10 }
+        transport: { type: number, minimum: 0, maximum: 10 }
+        cleanliness: { type: number, minimum: 0, maximum: 10 }
+        comment: { type: string, maxLength: 500, nullable: true }
