@@ -48,12 +48,13 @@ function blendAverage(currentAvg, count, newValue) {
 
 /**
  * Computes the overall 0-100 score from the six category scores
- * (each already 0-10), using the weights in config as the single
- * source of truth for both this calculation and the /methodology
- * endpoint the frontend renders.
+ * (each already 0-10). `weights` defaults to the standard profile in
+ * config, but callers can pass one of config.modeWeights instead so
+ * a "student"/"professional"/"family" request is scored with the
+ * exact same function and rounding — just a different weight set.
  */
-function computeOverallScore(categoryScores) {
-  const w = config.weights;
+function computeOverallScore(categoryScores, weights = config.weights) {
+  const w = weights;
   const weighted =
     categoryScores.weather * w.weather +
     categoryScores.airQuality * w.airQuality +

@@ -1,75 +1,89 @@
-// A self-contained "radar" map: no tile server, no API key, no
-// network dependency. Cities are plotted with a simple equirectangular
-// projection onto a dark panel with a graticule, so the whole app
-// works completely offline (fitting, since the fixed-source data is
-// seeded in this build anyway).
+// Real, pannable/zoomable map using Leaflet + free CARTO dark tiles
+// (no API key required). Replaces the earlier abstract "radar" grid:
+// with actual geography underneath, a hovering tooltip tells you
+// exactly which city and country each dot belongs to, and drag/scroll
+// only pans and zooms the map itself, not the page.
 
-function project(lat, lng, width, height) {
-  const x = ((lng + 180) / 360) * width;
-  const y = ((90 - lat) / 180) * height;
-  return { x, y };
-}
+const BAND_COLOR = {
+  good: '#4ade80',
+  fair: '#a3e635',
+  warn: '#f5a623',
+  poor: '#f0555a',
+};
 
-function bandClass(score) {
+function band(score) {
   if (score >= 75) return 'good';
   if (score >= 55) return 'fair';
   if (score >= 35) return 'warn';
   return 'poor';
 }
 
+let map = null;
+let markersLayer = null;
+let markersBySlug = {};
+let lastSelectedSlug = null;
+
+function ensureMap(container) {
+  if (map) return;
+
+  map = L.map(container, {
+    worldCopyJump: true,
+    minZoom: 2,
+    maxZoom: 12,
+    zoomControl: true,
+    attributionControl: true,
+  }).setView([20, 10], 2);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 19,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+
+  markersLayer = L.layerGroup().addTo(map);
+}
+
 export function renderMap(container, cities, selectedSlug, onSelect) {
-  const width = 1000;
-  const height = 520;
+  ensureMap(container);
 
-  const graticule = [];
-  for (let lng = -180; lng <= 180; lng += 30) {
-    const { x } = project(0, lng, width, height);
-    graticule.push(`<line x1="${x}" y1="0" x2="${x}" y2="${height}" class="grid-line" />`);
-  }
-  for (let lat = -60; lat <= 90; lat += 30) {
-    const { y } = project(lat, 0, width, height);
-    graticule.push(`<line x1="0" y1="${y}" x2="${width}" y2="${y}" class="grid-line" />`);
-  }
+  markersLayer.clearLayers();
+  markersBySlug = {};
 
-  const markers = cities
-    .map((city) => {
-      const { x, y } = project(city.lat, city.lng, width, height);
-      const selected = city.slug === selectedSlug;
-      return `
-        <g class="marker ${bandClass(city.overallScore)} ${selected ? 'selected' : ''}"
-           data-slug="${city.slug}" transform="translate(${x},${y})" tabindex="0" role="button"
-           aria-label="${city.name}, score ${city.overallScore}">
-          ${selected ? '<circle r="16" class="marker-ring" />' : ''}
-          <circle r="5" class="marker-dot" />
-        </g>
-      `;
-    })
-    .join('');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  container.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" class="map-svg" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <radialGradient id="sweepFade" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width="${width}" height="${height}" class="map-bg" />
-      ${graticule.join('')}
-      <g class="sweep-group">
-        <circle cx="${width / 2}" cy="${height / 2}" r="${Math.max(width, height) / 1.4}" fill="url(#sweepFade)" class="sweep" />
-      </g>
-      ${markers}
-    </svg>
-  `;
-
-  container.querySelectorAll('.marker').forEach((el) => {
-    el.addEventListener('click', () => onSelect(el.dataset.slug));
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onSelect(el.dataset.slug);
-      }
+  cities.forEach((city) => {
+    const isSelected = city.slug === selectedSlug;
+    const marker = L.circleMarker([city.lat, city.lng], {
+      radius: isSelected ? 9 : 6,
+      color: isSelected ? '#4fd1c5' : '#0a0d10',
+      weight: isSelected ? 2.5 : 1.5,
+      fillColor: BAND_COLOR[band(city.overallScore)],
+      fillOpacity: 0.92,
+      className: 'city-marker',
     });
+
+    marker.bindTooltip(
+      `<strong>${city.name}</strong>${city.state ? ', ' + city.state : ''} \u00b7 ${city.country}<br>Score: ${city.overallScore}`,
+      { direction: 'top', offset: [0, -8], className: 'city-tooltip' }
+    );
+
+    marker.on('click', () => onSelect(city.slug));
+    marker.addTo(markersLayer);
+    markersBySlug[city.slug] = marker;
   });
+
+  // Only fly the view when the selection actually changed (e.g. from
+  // search or a fresh page load) — never on a routine re-render (like
+  // after a rating submission), so we don't yank the map out from
+  // under someone who's mid-pan/zoom.
+  if (selectedSlug && selectedSlug !== lastSelectedSlug) {
+    const city = cities.find((c) => c.slug === selectedSlug);
+    if (city) {
+      map.flyTo([city.lat, city.lng], Math.max(map.getZoom(), 5), {
+        duration: reduceMotion ? 0 : 0.7,
+      });
+    }
+  }
+  lastSelectedSlug = selectedSlug;
 }

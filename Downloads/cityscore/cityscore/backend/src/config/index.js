@@ -56,6 +56,27 @@ const config = {
     cleanliness: 0.15,
   },
 
+  // Same six categories, reweighted per audience. Applied instead of
+  // the default `weights` above when a request passes ?mode=<key>.
+  // Each profile's weights sum to 1, same as the default. This is the
+  // single source of truth for mode scoring — the frontend keeps a
+  // matching copy (frontend/js/modes.js) only for its offline
+  // fallback view, never as the source of truth for a live request.
+  modeWeights: {
+    family: {
+      weather: 0.10, airQuality: 0.25,
+      safety: 0.30, traffic: 0.10, transport: 0.10, cleanliness: 0.15,
+    },
+    professional: {
+      weather: 0.10, airQuality: 0.10,
+      safety: 0.15, traffic: 0.25, transport: 0.30, cleanliness: 0.10,
+    },
+    student: {
+      weather: 0.10, airQuality: 0.15,
+      safety: 0.20, traffic: 0.10, transport: 0.25, cleanliness: 0.20,
+    },
+  },
+
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
 };
 

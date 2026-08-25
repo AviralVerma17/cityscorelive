@@ -1,5 +1,6 @@
 import { API_BASE } from './config.js';
 import { FALLBACK_CITIES, FALLBACK_METHODOLOGY } from './data.js';
+import { MODES, DEFAULT_MODE, computeOverallScoreLocal } from './modes.js';
 
 let backendReachable = null; // null = unknown, true/false once tested
 
@@ -19,23 +20,47 @@ async function tryFetch(path, options) {
   return body;
 }
 
-export async function getCities() {
+/**
+ * Recomputes each fallback city's overallScore for the requested mode
+ * using the exact same formula the backend uses, so switching modes
+ * still works meaningfully while offline — just against the small
+ * local dataset instead of the full 20 cities.
+ */
+function applyModeToFallback(cities, mode) {
+  const weights = MODES[mode]?.weights || MODES[DEFAULT_MODE].weights;
+  return cities.map((city) => ({
+    ...city,
+    overallScore: computeOverallScoreLocal(
+      {
+        weather: city.categories.weather.score,
+        airQuality: city.categories.airQuality.score,
+        safety: city.categories.safety.score,
+        traffic: city.categories.traffic.score,
+        transport: city.categories.transport.score,
+        cleanliness: city.categories.cleanliness.score,
+      },
+      weights
+    ),
+  }));
+}
+
+export async function getCities(mode = DEFAULT_MODE) {
   try {
-    const body = await tryFetch('/cities');
+    const body = await tryFetch(`/cities?mode=${encodeURIComponent(mode)}`);
     backendReachable = true;
     return { cities: body.cities, offline: false };
   } catch (err) {
     backendReachable = false;
     console.warn('CityScore backend unreachable, using local seed data:', err.message);
-    return { cities: FALLBACK_CITIES, offline: true };
+    return { cities: applyModeToFallback(FALLBACK_CITIES, mode), offline: true };
   }
 }
 
-export async function getMethodology() {
+export async function getMethodology(mode = DEFAULT_MODE) {
   try {
-    return await tryFetch('/methodology');
+    return await tryFetch(`/methodology?mode=${encodeURIComponent(mode)}`);
   } catch {
-    return FALLBACK_METHODOLOGY;
+    return { ...FALLBACK_METHODOLOGY, mode, weights: MODES[mode]?.weights || MODES[DEFAULT_MODE].weights };
   }
 }
 

@@ -7,6 +7,7 @@
   <meta name="description" content="A live, weighted city-rating dashboard blending fixed weather/air-quality data with resident-submitted ratings." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -22,20 +23,36 @@
 
     <div class="header-actions">
       <button id="methodology-btn" class="btn">How this is calculated</button>
+      <button id="rankings-btn" class="btn">Rankings</button>
+      <button id="favorites-btn" class="btn" aria-label="View favorites">
+        <span class="star-icon" aria-hidden="true">&#9733;</span><span class="favorites-label"> Favorites</span>
+        <span id="favorites-count" class="favorites-count" hidden>0</span>
+      </button>
       <button id="rate-city-btn" class="btn btn-primary">Rate this city</button>
     </div>
   </header>
 
   <main class="app-main">
-    <div id="map" aria-label="Map of rated cities"></div>
+    <div id="map" aria-label="Map of rated cities &mdash; scroll or drag to pan and zoom"></div>
+
+    <div class="mode-switch" id="mode-switch" role="tablist" aria-label="Rating mode">
+      <span class="mode-switch-thumb" aria-hidden="true"></span>
+      <button class="mode-btn" data-mode="student" role="tab" aria-selected="false" type="button">Student</button>
+      <button class="mode-btn" data-mode="professional" role="tab" aria-selected="false" type="button">Professional</button>
+      <button class="mode-btn" data-mode="family" role="tab" aria-selected="true" type="button">Family</button>
+    </div>
 
     <section class="score-panel" aria-label="Selected city score">
       <div class="score-panel-head">
         <h1 id="city-name">&mdash;</h1>
         <span id="city-meta"></span>
         <span id="seed-badge" class="badge" hidden>Seed data</span>
+        <button id="favorite-toggle" class="star-toggle" aria-pressed="false" aria-label="Add to favorites" type="button">
+          <span aria-hidden="true">&#9733;</span>
+        </button>
       </div>
       <div id="gauge"></div>
+      <div id="mode-note" class="mode-note"></div>
     </section>
 
     <section class="category-panel" aria-label="Category breakdown">
@@ -88,6 +105,29 @@
     <div class="dialog-body" id="methodology-body">Loading&hellip;</div>
   </dialog>
 
+  <dialog id="rankings-panel">
+    <div class="dialog-head">
+      <h2>City rankings <span id="rankings-mode-label" class="dialog-subtitle"></span></h2>
+      <button class="dialog-close" id="rankings-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <p class="dialog-hint">Ranked by overall score for the current mode. Click a city to jump to it on the map.</p>
+      <ul class="city-list" id="rankings-list"></ul>
+    </div>
+  </dialog>
+
+  <dialog id="favorites-panel">
+    <div class="dialog-head">
+      <h2>Favorites</h2>
+      <button class="dialog-close" id="favorites-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <ul class="city-list" id="favorites-list"></ul>
+      <p class="dialog-hint" id="favorites-empty" hidden>No favorites yet &mdash; tap the star next to a city&rsquo;s score to save it here.</p>
+    </div>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
