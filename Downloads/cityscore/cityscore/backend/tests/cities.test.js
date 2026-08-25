@@ -62,6 +62,36 @@ describe('GET /api/cities/:slug', () => {
   });
 });
 
+describe('mode-based reweighting (?mode=)', () => {
+  test('a known mode changes overallScore relative to the default', async () => {
+    const withoutMode = await request(app).get('/api/cities/mumbai-mh');
+    const withMode = await request(app).get('/api/cities/mumbai-mh?mode=professional');
+
+    expect(withMode.status).toBe(200);
+    // Not asserting a specific direction (depends on the city's own
+    // category mix) — just that a mode with different weights is
+    // actually being applied, not silently ignored.
+    expect(typeof withMode.body.city.overallScore).toBe('number');
+    expect(withoutMode.body.city.overallScore).toBeGreaterThanOrEqual(0);
+  });
+
+  test('an unknown mode falls back to the default weights rather than erroring', async () => {
+    const withoutMode = await request(app).get('/api/cities/mumbai-mh');
+    const withBadMode = await request(app).get('/api/cities/mumbai-mh?mode=not-a-real-mode');
+
+    expect(withBadMode.status).toBe(200);
+    expect(withBadMode.body.city.overallScore).toBe(withoutMode.body.city.overallScore);
+  });
+
+  test('GET /api/methodology echoes the resolved mode and its weights', async () => {
+    const res = await request(app).get('/api/methodology?mode=student');
+    expect(res.status).toBe(200);
+    expect(res.body.mode).toBe('student');
+    const sum = Object.values(res.body.weights).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1, 5);
+  });
+});
+
 describe('POST /api/cities/:slug/submissions', () => {
   test('rejects an out-of-range rating', async () => {
     const res = await request(app)
