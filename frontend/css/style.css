@@ -200,6 +200,17 @@ button {
   filter: brightness(0.9) contrast(1.05);
 }
 
+/* Leaflet renders the zoom control inside .leaflet-top.leaflet-left
+   by default, which sits directly behind the score panel in the top
+   corner. Reposition that whole container to the vertical middle of
+   the left edge instead — clear of the score panel above and the
+   "Best for me" panel below, without needing to guess either one's
+   height. */
+.leaflet-top.leaflet-left {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .leaflet-control-zoom {
   border: 1px solid var(--hairline) !important;
   box-shadow: none !important;
@@ -399,6 +410,88 @@ button {
   font-weight: 500;
   margin-left: 0.3rem;
 }
+
+/* ---------- Best for me (bottom-left) ---------- */
+
+.best-panel {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 10;
+  width: min(320px, 38vw);
+  min-width: 260px;
+  background: rgba(18, 23, 29, 0.88);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  backdrop-filter: blur(6px);
+}
+
+.best-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.best-panel-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.btn-tiny {
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease;
+}
+
+.btn-tiny:hover { border-color: var(--accent); }
+
+.city-list.compact .city-list-row {
+  padding: 0.4rem 0.2rem;
+  font-size: 0.82rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0;
+  margin-top: 0.3rem;
+}
+
+.link-btn:hover { text-decoration: underline; }
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  justify-content: center;
+}
+
+.page-btn {
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  min-width: 2rem;
+  padding: 0.3rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.page-btn:hover { border-color: var(--accent); }
+.page-btn.active { background: var(--accent); color: #05201d; border-color: var(--accent); font-weight: 700; }
 
 /* ---------- Score panel (top-left) ---------- */
 

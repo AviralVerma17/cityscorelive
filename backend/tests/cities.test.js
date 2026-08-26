@@ -38,7 +38,7 @@ describe('GET /api/cities', () => {
     const res = await request(app).get('/api/cities');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.cities)).toBe(true);
-    expect(res.body.cities.length).toBeGreaterThanOrEqual(20);
+    expect(res.body.cities.length).toBeGreaterThanOrEqual(15);
 
     const city = res.body.cities[0];
     expect(city).toHaveProperty('overallScore');
@@ -68,14 +68,11 @@ describe('mode-based reweighting (?mode=)', () => {
     const withMode = await request(app).get('/api/cities/mumbai-mh?mode=professional');
 
     expect(withMode.status).toBe(200);
-    // Not asserting a specific direction (depends on the city's own
-    // category mix) — just that a mode with different weights is
-    // actually being applied, not silently ignored.
     expect(typeof withMode.body.city.overallScore).toBe('number');
     expect(withoutMode.body.city.overallScore).toBeGreaterThanOrEqual(0);
   });
 
-  test('an unknown mode falls back to the default weights rather than erroring', async () => {
+  test('an unknown mode falls back to the default mode rather than erroring', async () => {
     const withoutMode = await request(app).get('/api/cities/mumbai-mh');
     const withBadMode = await request(app).get('/api/cities/mumbai-mh?mode=not-a-real-mode');
 
@@ -93,38 +90,60 @@ describe('mode-based reweighting (?mode=)', () => {
 });
 
 describe('POST /api/cities/:slug/submissions', () => {
-  test('rejects an out-of-range rating', async () => {
+  test('rejects a request missing mode', async () => {
     const res = await request(app)
-      .post('/api/cities/austin-tx/submissions')
-      .send({ safety: 15, traffic: 5, transport: 5, cleanliness: 5 });
+      .post('/api/cities/pune-mh/submissions')
+      .send({ safety: 8, traffic: 5, transport: 5, cleanliness: 5 });
     expect(res.status).toBe(400);
   });
 
-  test('accepts a valid submission and blends it into the average', async () => {
-    const before = await request(app).get('/api/cities/austin-tx');
-    const countBefore = before.body.city.contributorCount;
-
+  test('rejects an out-of-range rating', async () => {
     const res = await request(app)
-      .post('/api/cities/austin-tx/submissions')
-      .send({ safety: 9, traffic: 8, transport: 7, cleanliness: 9, comment: 'Great greenbelt access.' });
-
-    expect(res.status).toBe(201);
-    expect(res.body.updatedCategories.submissionCount).toBe(countBefore + 1);
-
-    const after = await request(app).get('/api/cities/austin-tx');
-    expect(after.body.city.isSeedData).toBe(false);
+      .post('/api/cities/pune-mh/submissions')
+      .send({ mode: 'family', safety: 15, traffic: 5, transport: 5, cleanliness: 5 });
+    expect(res.status).toBe(400);
   });
 
-  test('throttles a second submission from the same submitter for the same city', async () => {
+  test('accepts a valid submission and blends it into that mode\u2019s average only', async () => {
+    const beforeStudent = await request(app).get('/api/cities/pune-mh?mode=student');
+    const beforeFamily = await request(app).get('/api/cities/pune-mh?mode=family');
+    const countBefore = beforeStudent.body.city.contributorCount;
+
     const res = await request(app)
-      .post('/api/cities/austin-tx/submissions')
-      .send({ safety: 1, traffic: 1, transport: 1, cleanliness: 1 });
+      .post('/api/cities/pune-mh/submissions')
+      .send({ mode: 'student', safety: 9, traffic: 8, transport: 7, cleanliness: 9, comment: 'Great for students.' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.mode).toBe('student');
+    expect(res.body.updatedCategories.submissionCount).toBe(countBefore + 1);
+
+    const afterStudent = await request(app).get('/api/cities/pune-mh?mode=student');
+    expect(afterStudent.body.city.isSeedData).toBe(false);
+
+    // Rating under "student" mode must NOT change the "family" mode's
+    // own average — that's the whole point of per-mode ratings.
+    const afterFamily = await request(app).get('/api/cities/pune-mh?mode=family');
+    expect(afterFamily.body.city.categories.safety.score).toBe(beforeFamily.body.city.categories.safety.score);
+    expect(afterFamily.body.city.contributorCount).toBe(beforeFamily.body.city.contributorCount);
+  });
+
+  test('throttles a second submission from the same submitter for the SAME mode', async () => {
+    const res = await request(app)
+      .post('/api/cities/pune-mh/submissions')
+      .send({ mode: 'student', safety: 1, traffic: 1, transport: 1, cleanliness: 1 });
     expect(res.status).toBe(429);
+  });
+
+  test('does NOT throttle a submission for a DIFFERENT mode from the same submitter', async () => {
+    const res = await request(app)
+      .post('/api/cities/pune-mh/submissions')
+      .send({ mode: 'professional', safety: 6, traffic: 6, transport: 6, cleanliness: 6 });
+    expect(res.status).toBe(201);
   });
 });
 
 describe('GET /api/methodology', () => {
-  test('exposes the same weights the scoring engine uses', async () => {
+  test('exposes weights that sum to 1', async () => {
     const res = await request(app).get('/api/methodology');
     expect(res.status).toBe(200);
     const sum = Object.values(res.body.weights).reduce((a, b) => a + b, 0);

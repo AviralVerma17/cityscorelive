@@ -58,14 +58,25 @@
     <section class="category-panel" aria-label="Category breakdown">
       <div id="category-grid"></div>
     </section>
+
+    <section class="best-panel" aria-label="Best for me">
+      <div class="best-panel-head">
+        <span class="best-panel-title">Best for me</span>
+        <button id="best-settings-btn" class="btn-tiny" type="button">Set priorities</button>
+      </div>
+      <p id="best-empty-hint" class="dialog-hint">Set your own priority weights to see cities ranked just for you &mdash; not by mode or overall score.</p>
+      <ol class="city-list compact" id="best-preview-list" hidden></ol>
+      <button id="best-load-more" class="link-btn" type="button" hidden>Load more &rarr;</button>
+    </section>
   </main>
 
   <dialog id="rate-modal">
     <div class="dialog-head">
-      <h2>Rate <span id="rate-city-label"></span></h2>
+      <h2>Rate <span id="rate-city-label"></span> <span id="rate-mode-label" class="dialog-subtitle"></span></h2>
       <button class="dialog-close" id="rate-close" aria-label="Close">&times;</button>
     </div>
     <div class="dialog-body">
+      <p class="dialog-hint">Your rating counts toward this mode only &mdash; you can also rate this city once under each of the other two modes.</p>
       <form id="rate-form">
         <div class="rating-field">
           <label for="input-safety">Safety <output id="out-safety">5</output></label>
@@ -124,6 +135,60 @@
     <div class="dialog-body">
       <ul class="city-list" id="favorites-list"></ul>
       <p class="dialog-hint" id="favorites-empty" hidden>No favorites yet &mdash; tap the star next to a city&rsquo;s score to save it here.</p>
+    </div>
+  </dialog>
+
+  <dialog id="best-settings-panel">
+    <div class="dialog-head">
+      <h2>Set your priorities</h2>
+      <button class="dialog-close" id="best-settings-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <p class="dialog-hint">Slide each category by how much it matters to you &mdash; these don&rsquo;t need to add up to anything, we&rsquo;ll normalize them automatically.</p>
+      <form id="best-settings-form">
+        <div class="rating-field">
+          <label for="weight-weather">Weather <output id="out-weight-weather">5</output></label>
+          <input type="range" id="weight-weather" name="weather" min="0" max="10" step="1" value="5"
+                 oninput="document.getElementById('out-weight-weather').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="weight-airQuality">Air quality <output id="out-weight-airQuality">5</output></label>
+          <input type="range" id="weight-airQuality" name="airQuality" min="0" max="10" step="1" value="5"
+                 oninput="document.getElementById('out-weight-airQuality').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="weight-safety">Safety <output id="out-weight-safety">5</output></label>
+          <input type="range" id="weight-safety" name="safety" min="0" max="10" step="1" value="5"
+                 oninput="document.getElementById('out-weight-safety').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="weight-traffic">Traffic <output id="out-weight-traffic">5</output></label>
+          <input type="range" id="weight-traffic" name="traffic" min="0" max="10" step="1" value="5"
+                 oninput="document.getElementById('out-weight-traffic').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="weight-transport">Public transport <output id="out-weight-transport">5</output></label>
+          <input type="range" id="weight-transport" name="transport" min="0" max="10" step="1" value="5"
+                 oninput="document.getElementById('out-weight-transport').textContent=this.value" />
+        </div>
+        <div class="rating-field">
+          <label for="weight-cleanliness">Cleanliness <output id="out-weight-cleanliness">5</output></label>
+          <input type="range" id="weight-cleanliness" name="cleanliness" min="0" max="10" step="1" value="5"
+                 oninput="document.getElementById('out-weight-cleanliness').textContent=this.value" />
+        </div>
+        <button type="submit" class="btn btn-primary">Show my top cities</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="best-full-panel">
+    <div class="dialog-head">
+      <h2>Best for me &mdash; full ranking</h2>
+      <button class="dialog-close" id="best-full-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <ul class="city-list" id="best-full-list"></ul>
+      <div class="pagination" id="best-pagination"></div>
     </div>
   </dialog>
 
