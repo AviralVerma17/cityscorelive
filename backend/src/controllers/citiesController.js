@@ -6,20 +6,22 @@ const { computeOverallScore } = require('../services/scoringService');
 const { ApiError } = require('../middleware/errorHandler');
 const config = require('../config');
 
+const VALID_MODES = new Set(Object.keys(config.modeWeights));
+
 /**
- * Resolves a ?mode= query value to a weight profile. An unknown or
- * absent mode silently falls back to the default profile rather than
- * erroring — a bad/missing mode should never break the page, just
- * mean "no special reweighting applied."
+ * Resolves a ?mode= query value to a concrete mode key + its weight
+ * profile. There's no longer a "neutral" mode-agnostic view — every
+ * request needs a concrete mode to know both which weight profile to
+ * apply and which mode_category_scores row to read. An unknown or
+ * absent mode falls back to the app's default mode rather than
+ * erroring, so a bad/missing mode never breaks the page.
  */
-function resolveWeights(modeParam) {
-  if (modeParam && config.modeWeights[modeParam]) {
-    return { mode: modeParam, weights: config.modeWeights[modeParam] };
-  }
-  return { mode: 'default', weights: config.weights };
+function resolveMode(modeParam) {
+  const mode = VALID_MODES.has(modeParam) ? modeParam : config.defaultMode;
+  return { mode, weights: config.modeWeights[mode] };
 }
 
-function serializeCity(row, weights) {
+function serializeCity(row, mode, weights) {
   const categories = {
     weather: { score: row.weather_score ?? 0, label: 'Weather' },
     airQuality: { score: row.air_quality_score ?? 0, label: 'Air quality' },
@@ -49,6 +51,7 @@ function serializeCity(row, weights) {
     lat: row.lat,
     lng: row.lng,
     population: row.population,
+    mode,
     overallScore: overall,
     isSeedData: (row.submission_count ?? 0) === 0,
     contributorCount: row.submission_count ?? 0,
@@ -63,25 +66,25 @@ function serializeCity(row, weights) {
 }
 
 function listCities(req, res) {
-  const { weights } = resolveWeights(req.query.mode);
-  const rows = cityRepository.listCities();
-  res.json({ cities: rows.map((row) => serializeCity(row, weights)) });
+  const { mode, weights } = resolveMode(req.query.mode);
+  const rows = cityRepository.listCities(mode);
+  res.json({ mode, cities: rows.map((row) => serializeCity(row, mode, weights)) });
 }
 
 function getCity(req, res) {
-  const { weights } = resolveWeights(req.query.mode);
-  const row = cityRepository.getCityBySlug(req.params.slug);
+  const { mode, weights } = resolveMode(req.query.mode);
+  const row = cityRepository.getCityBySlug(req.params.slug, mode);
   if (!row) throw new ApiError(404, `No city found for slug "${req.params.slug}"`);
-  res.json({ city: serializeCity(row, weights) });
+  res.json({ city: serializeCity(row, mode, weights) });
 }
 
 async function refreshEnvironment(req, res) {
-  const city = cityRepository.getCityBySlug(req.params.slug);
-  if (!city) throw new ApiError(404, `No city found for slug "${req.params.slug}"`);
+  const cityRow = cityRepository.getCityBySlug(req.params.slug, config.defaultMode);
+  if (!cityRow) throw new ApiError(404, `No city found for slug "${req.params.slug}"`);
 
-  const reading = await environmentService.refreshCity(city);
+  const reading = await environmentService.refreshCity(cityRow);
   res.json({
-    slug: city.slug,
+    slug: cityRow.slug,
     tempC: reading.temp_c,
     aqi: reading.aqi,
     weatherScore: reading.weather_score,
@@ -93,20 +96,18 @@ async function refreshEnvironment(req, res) {
 }
 
 function methodology(req, res) {
-  const { mode, weights } = resolveWeights(req.query.mode);
+  const { mode, weights } = resolveMode(req.query.mode);
   res.json({
     mode,
     weights,
     scale: '0-10 per category, blended into a 0-100 overall score',
     explanation: [
-      'Weather and air quality come from a fixed monitoring source, refreshed on an interval rather than continuously polled.',
-      'Safety, traffic, public transport, and cleanliness are resident- and visitor-submitted, blended into a running average per category so no single submission can swing a score.',
-      mode === 'default'
-        ? 'These are the default weights. Switch modes (student / professional / family) to see the same six categories reweighted for a different priority.'
-        : `These weights reflect the "${mode}" mode — the same six category scores, just prioritized differently.`,
-      'A city shows a "seed data" badge until it has at least one real submission.',
+      'Weather and air quality come from a fixed monitoring source, refreshed on an interval rather than continuously polled — this signal is the same across every mode.',
+      'Safety, traffic, public transport, and cleanliness are resident- and visitor-submitted, and are rated SEPARATELY per mode: a student\u2019s take on a city can genuinely differ from a family\u2019s or a professional\u2019s, so each mode blends its own running average.',
+      `These weights reflect the "${mode}" mode — the same category structure, prioritized differently.`,
+      'A city shows a "seed data" badge until it has at least one real submission under that specific mode.',
     ],
   });
 }
 
-module.exports = { listCities, getCity, refreshEnvironment, methodology };
+module.exports = { listCities, getCity, refreshEnvironment, methodology, resolveMode };

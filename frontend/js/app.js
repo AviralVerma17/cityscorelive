@@ -4,6 +4,7 @@ import { renderGauge } from './gauge.js';
 import { CATEGORY_META } from './data.js';
 import { MODES, DEFAULT_MODE } from './modes.js';
 import { getFavorites, isFavorite, toggleFavorite } from './favorites.js';
+import { normalizeSliderValues, rankCitiesByCustomWeights, CUSTOM_CATEGORY_KEYS } from './customWeights.js';
 
 const state = {
   cities: [],
@@ -11,7 +12,12 @@ const state = {
   offline: false,
   mode: DEFAULT_MODE,
   favorites: new Set(getFavorites()),
+  customWeights: null,
+  customRanked: [],
+  bestPage: 1,
 };
+
+const BEST_PAGE_SIZE = 10;
 
 const el = {
   map: document.getElementById('map'),
@@ -27,6 +33,7 @@ const el = {
   rateModal: document.getElementById('rate-modal'),
   rateForm: document.getElementById('rate-form'),
   rateCityLabel: document.getElementById('rate-city-label'),
+  rateModeLabel: document.getElementById('rate-mode-label'),
   rateClose: document.getElementById('rate-close'),
   rateStatus: document.getElementById('rate-status'),
   methodologyBtn: document.getElementById('methodology-btn'),
@@ -49,6 +56,17 @@ const el = {
   rankingsModeLabel: document.getElementById('rankings-mode-label'),
   scorePanel: document.querySelector('.score-panel'),
   categoryPanel: document.querySelector('.category-panel'),
+  bestSettingsBtn: document.getElementById('best-settings-btn'),
+  bestSettingsPanel: document.getElementById('best-settings-panel'),
+  bestSettingsClose: document.getElementById('best-settings-close'),
+  bestSettingsForm: document.getElementById('best-settings-form'),
+  bestEmptyHint: document.getElementById('best-empty-hint'),
+  bestPreviewList: document.getElementById('best-preview-list'),
+  bestLoadMore: document.getElementById('best-load-more'),
+  bestFullPanel: document.getElementById('best-full-panel'),
+  bestFullClose: document.getElementById('best-full-close'),
+  bestFullList: document.getElementById('best-full-list'),
+  bestPagination: document.getElementById('best-pagination'),
 };
 
 const MODE_ORDER = ['student', 'professional', 'family'];
@@ -220,6 +238,7 @@ async function selectMode(mode) {
   state.cities = cities;
   state.offline = offline || isOffline();
   renderAll();
+  recomputeCustomRanking();
 
   requestAnimationFrame(() => {
     morphTargets.forEach((elm) => elm.classList.remove('morphing'));
@@ -257,7 +276,7 @@ el.favoriteToggle.addEventListener('click', () => {
   if (el.favoritesPanel.open) renderFavoritesList();
 });
 
-function renderCityListRow(city, { showRank, rank } = {}) {
+function renderCityListRow(city, { showRank, rank, scoreKey = 'overallScore' } = {}) {
   const favorited = state.favorites.has(city.slug);
   return `
     <li class="city-list-row" data-slug="${city.slug}">
@@ -267,7 +286,7 @@ function renderCityListRow(city, { showRank, rank } = {}) {
         <span aria-hidden="true">&#9733;</span>
       </button>
       <span class="city-row-name">${city.name}${city.state ? ', ' + city.state : ''} <span class="city-row-country">${city.country}</span></span>
-      <span class="city-row-score">${city.overallScore}</span>
+      <span class="city-row-score">${city[scoreKey]}</span>
     </li>
   `;
 }
@@ -337,11 +356,90 @@ el.favoritesBtn.addEventListener('click', () => {
 });
 el.favoritesClose.addEventListener('click', () => el.favoritesPanel.close());
 
+// --- Best for me (custom priority weights) -----------------------------
+
+function renderBestPreview() {
+  const hasWeights = state.customWeights !== null;
+  el.bestEmptyHint.hidden = hasWeights;
+  el.bestPreviewList.hidden = !hasWeights;
+  el.bestLoadMore.hidden = !hasWeights || state.customRanked.length <= 5;
+
+  if (!hasWeights) return;
+
+  el.bestPreviewList.innerHTML = state.customRanked
+    .slice(0, 5)
+    .map((city, i) => renderCityListRow(city, { showRank: true, rank: i + 1, scoreKey: 'customScore' }))
+    .join('');
+}
+
+function recomputeCustomRanking() {
+  if (!state.customWeights) return;
+  state.customRanked = rankCitiesByCustomWeights(state.cities, state.customWeights);
+  renderBestPreview();
+}
+
+el.bestSettingsBtn.addEventListener('click', () => el.bestSettingsPanel.showModal());
+el.bestSettingsClose.addEventListener('click', () => el.bestSettingsPanel.close());
+
+el.bestSettingsForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const formData = new FormData(el.bestSettingsForm);
+  const raw = Object.fromEntries(CUSTOM_CATEGORY_KEYS.map((key) => [key, Number(formData.get(key))]));
+  state.customWeights = normalizeSliderValues(raw);
+  recomputeCustomRanking();
+  el.bestSettingsPanel.close();
+});
+
+function renderBestFullPage(page) {
+  const total = state.customRanked.length;
+  const totalPages = Math.max(1, Math.ceil(total / BEST_PAGE_SIZE));
+  state.bestPage = Math.min(Math.max(1, page), totalPages);
+  const start = (state.bestPage - 1) * BEST_PAGE_SIZE;
+  const pageItems = state.customRanked.slice(start, start + BEST_PAGE_SIZE);
+
+  el.bestFullList.innerHTML = pageItems
+    .map((city, i) => renderCityListRow(city, { showRank: true, rank: start + i + 1, scoreKey: 'customScore' }))
+    .join('');
+
+  el.bestPagination.innerHTML = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .map((p) => `<button class="page-btn ${p === state.bestPage ? 'active' : ''}" data-page="${p}" type="button">${p}</button>`)
+    .join('');
+}
+
+el.bestLoadMore.addEventListener('click', () => {
+  renderBestFullPage(1);
+  el.bestFullPanel.showModal();
+});
+el.bestFullClose.addEventListener('click', () => el.bestFullPanel.close());
+
+el.bestPagination.addEventListener('click', (e) => {
+  const btn = e.target.closest('.page-btn');
+  if (btn) renderBestFullPage(Number(btn.dataset.page));
+});
+
+wireCityListInteractions(el.bestPreviewList, (slug, refreshOnly) => {
+  if (refreshOnly) {
+    renderBestPreview();
+    return;
+  }
+  selectCity(slug);
+});
+
+wireCityListInteractions(el.bestFullList, (slug, refreshOnly) => {
+  if (refreshOnly) {
+    renderBestFullPage(state.bestPage);
+    return;
+  }
+  selectCity(slug);
+  el.bestFullPanel.close();
+});
+
 // --- Rating modal -----------------------------------------------------
 
 function openRateModal() {
   const city = currentCity();
   el.rateCityLabel.textContent = city.name;
+  el.rateModeLabel.textContent = `(${MODES[state.mode].label} mode)`;
   el.rateStatus.textContent = '';
   el.rateStatus.className = 'form-status';
   el.rateForm.reset();
@@ -356,6 +454,7 @@ el.rateForm.addEventListener('submit', async (e) => {
   const city = currentCity();
   const formData = new FormData(el.rateForm);
   const payload = {
+    mode: state.mode,
     safety: Number(formData.get('safety')),
     traffic: Number(formData.get('traffic')),
     transport: Number(formData.get('transport')),
@@ -375,6 +474,7 @@ el.rateForm.addEventListener('submit', async (e) => {
     const refreshed = await getCities(state.mode);
     state.cities = refreshed.cities;
     renderAll();
+    recomputeCustomRanking();
     setTimeout(() => el.rateModal.close(), 1200);
   } catch (err) {
     el.rateStatus.textContent = err.details

@@ -33,7 +33,7 @@ const config = {
     windowMs: toInt(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     maxRequests: toInt(process.env.RATE_LIMIT_MAX, 300),
     submissionWindowMs: toInt(process.env.SUBMISSION_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000),
-    submissionMax: toInt(process.env.SUBMISSION_RATE_LIMIT_MAX, 3),
+    submissionMax: toInt(process.env.SUBMISSION_RATE_LIMIT_MAX, 10),
   },
 
   environment: {
@@ -76,6 +76,10 @@ const config = {
       safety: 0.20, traffic: 0.10, transport: 0.25, cleanliness: 0.20,
     },
   },
+
+  // Used whenever a request omits ?mode= or passes an unrecognized
+  // one — matches the frontend's own default (frontend/js/modes.js).
+  defaultMode: 'family',
 
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
 };

@@ -1,4 +1,4 @@
-[
+﻿[
   { "slug": "new-york-ny",      "name": "New York",     "state": "NY", "country": "US", "lat": 40.7128, "lng": -74.0060, "population": 8336817, "baseline": { "safety": 6.1, "traffic": 4.2, "transport": 8.6, "cleanliness": 5.8 }, "envBaseline": { "temp": 14, "aqi": 52 } },
   { "slug": "los-angeles-ca",   "name": "Los Angeles",  "state": "CA", "country": "US", "lat": 34.0522, "lng": -118.2437, "population": 3898747, "baseline": { "safety": 5.6, "traffic": 3.4, "transport": 5.1, "cleanliness": 5.4 }, "envBaseline": { "temp": 19, "aqi": 68 } },
   { "slug": "chicago-il",       "name": "Chicago",      "state": "IL", "country": "US", "lat": 41.8781, "lng": -87.6298, "population": 2746388, "baseline": { "safety": 5.4, "traffic": 4.9, "transport": 7.4, "cleanliness": 5.9 }, "envBaseline": { "temp": 10, "aqi": 47 } },

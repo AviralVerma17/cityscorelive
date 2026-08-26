@@ -9,7 +9,7 @@ refreshes environmental data on an interval.
 
 ```
 Frontend (static, no build step)  <-->  Backend API (Express + SQLite)  <-->  Weather/AQI providers
-     dark radar map + gauge              scoring, submissions, cron          (or seed mode, no keys needed)
+     dark interactive map + gauge         scoring, submissions, cron          (or seed mode, no keys needed)
 ```
 
 ## Why two data paths
@@ -88,21 +88,52 @@ with Supertest against a throwaway SQLite file.
 - **Top-left, on the map** &mdash; an analog gauge showing the overall
   score (0&ndash;100) and the selected city's name. A "seed data" badge
   shows while a city hasn't had any real submissions yet.
-- **Map** &mdash; a dark, dependency-free radar-style map (no tile
-  server or API key needed): cities are plotted by latitude/longitude
-  and colored by score band. Click or tap a marker, or use search.
+- **Map** &mdash; a real, pannable/zoomable dark map (Leaflet + free
+  CARTO dark tiles, no API key needed), so country borders and place
+  names are genuine geography, not a stylized grid. Cities are
+  plotted by latitude/longitude and colored by score band; hover a
+  dot for its name, state/country, and score. Zoom and drag are
+  scoped to the map, not the page.
 - **Bottom-right** &mdash; the six category cards, each showing its
   score, weight, and either contributor count (crowd categories) or
   the raw reading and last-refresh time (fixed-source categories).
 - **Search** &mdash; manual city/state search in the header. No
   geolocation &mdash; you find your city, it doesn't guess.
-- **Rate this city** &mdash; a form for the four subjective categories.
-  A submission blends into that category's running average via the
-  real `POST /api/cities/:slug/submissions` endpoint, throttled per
-  submitter per city so one person can't swing a score alone.
+- **Rate this city** &mdash; a form for the four subjective categories,
+  scoped to whichever mode you're currently viewing. Each mode keeps
+  its own running average per city &mdash; rating a city under
+  Student mode doesn't touch its Professional or Family numbers, and
+  you can rate the same city once per mode per hour (up to 10
+  submissions/hour total per person, across any cities/modes).
 - **How this is calculated** &mdash; pulls the live weighting table
   and explanation straight from `GET /api/methodology`, so it can
   never drift out of sync with the actual scoring code.
+- **Mode switch** (top-center) &mdash; a frosted-glass pill that
+  toggles between **Student**, **Professional**, and **Family**
+  views. Weather/air quality stay the same across modes (they're the
+  fixed-source signal), but safety, traffic, transport, and
+  cleanliness are rated **independently per mode** &mdash; a
+  student's take on a city's safety can genuinely differ from a
+  family's, so each mode blends its own running average
+  (`mode_category_scores` table) on top of its own weight profile
+  (`GET /api/cities?mode=professional`, etc. — see
+  `backend/src/config/index.js`'s `modeWeights`). Switching modes
+  triggers a short blur/scale "morph" on the score and category
+  panels while the mode-specific data loads.
+- **Rankings** &mdash; a full leaderboard of every city sorted by
+  overall score for whichever mode is active, with an inline star to
+  favorite a city straight from the list.
+- **Best for me** (bottom-left) &mdash; set your own relative
+  priorities across all six categories with a slider dialog; cities
+  are ranked by that custom weighting instead of any fixed mode. Top
+  5 show inline, "Load more" opens a paginated (10/page) full ranking.
+  Entirely client-side — it re-weighs whatever category scores are
+  already loaded for the active mode.
+- **Favorites** &mdash; a star toggle on the score panel (and inside
+  Rankings/Best for me) saves a city locally; the header's Favorites
+  button opens the saved list. Stored in `localStorage`, per browser,
+  since this is a personal preference rather than something that
+  needs an account or backend.
 
 ## API overview
 
@@ -126,15 +157,18 @@ Full detail in [`backend/openapi.yaml`](backend/openapi.yaml).
   Node. Requires **Node 22.5+** (`node -v` to check). All SQL lives
   behind the two repositories in `src/models/`, so swapping to
   Postgres later only touches that layer.
-- **Running averages, not raw replays** &mdash; `category_scores` holds
-  the current average per city; `submissions` is an append-only log
-  everything is derived from, so the average can always be audited or
+- **Running averages, not raw replays** &mdash; `mode_category_scores`
+  holds the current average per (city, mode) pair; `submissions` is
+  an append-only log (tagged with the mode it was rated under)
+  everything is derived from, so any average can always be audited or
   recomputed.
-- **Abuse resistance** &mdash; `express-rate-limit` on every route,
-  a stricter limit on submissions, *and* an application-level
-  per-submitter-per-city throttle (`submission_throttle`) so the two
-  layers cover both bursty and slow-and-steady abuse. IPs are never
-  stored raw &mdash; only a salted hash.
+- **Abuse resistance** &mdash; `express-rate-limit` caps a submitter
+  at 10 ratings/hour globally, *and* an application-level
+  per-submitter-per-city-**per-mode** throttle (`submission_throttle`)
+  blocks re-rating the same city under the same mode within an hour —
+  while still allowing a genuinely separate rating of that city under
+  a different mode. IPs are never stored raw &mdash; only a salted
+  hash.
 - **Validation** &mdash; every request body/query is parsed through a
   `zod` schema before it reaches a controller.
 - **Single source of truth for scoring** &mdash; `scoringService.js`
@@ -162,7 +196,7 @@ cityscore/
       routes/                  Route wiring
       middleware/              errorHandler, rateLimiter, validate
       jobs/refreshEnvironment.js  Scheduled weather/AQI refresh
-      data/cities.json        20 seeded cities (name, coords, baseline scores)
+      data/cities.json        18 seeded cities (8 US, 10 India — name, coords, baseline scores)
     tests/                    Jest + Supertest
     openapi.yaml              Full API spec
     Dockerfile
@@ -171,7 +205,7 @@ cityscore/
     css/style.css              Dark instrument-panel theme
     js/
       api.js                  Backend client with offline fallback
-      map.js                   Dependency-free radar map renderer
+      map.js                   Leaflet-based interactive map renderer
       gauge.js                 Analog score dial renderer
       app.js                   Wires it all together
       data.js / config.js      Local fallback data + API base config
@@ -188,5 +222,5 @@ cityscore/
 3. Move from SQLite to Postgres if this needs to run across multiple
    backend instances (the repository layer is already the only place
    that would need to change).
-4. Expand past the 20 seeded cities once both data paths have proven
+4. Expand past the 18 seeded cities once both data paths have proven
    themselves in a real deployment.
