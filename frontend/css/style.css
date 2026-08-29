@@ -57,7 +57,7 @@ button {
 .brand {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   letter-spacing: 0.06em;
   color: var(--text);
   display: flex;
@@ -277,7 +277,7 @@ button {
   color: var(--text-muted);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   letter-spacing: 0.03em;
   padding: 0.45rem 1rem;
   border-radius: 999px;
@@ -519,7 +519,7 @@ button {
 
 #city-name {
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -598,7 +598,7 @@ button {
 }
 
 .category-label {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -627,7 +627,7 @@ button {
 .category-detail {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
@@ -766,3 +766,4 @@ dialog::backdrop {
     transition: none !important;
   }
 }
+
